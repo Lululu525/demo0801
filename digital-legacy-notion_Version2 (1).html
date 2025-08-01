@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>Digital Legacy Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { background:#f7f9fb;font-family:Arial,sans-serif;}
+    .nav { background:#233045; color:#fff; padding:14px 20px; font-size:18px; }
+    .centerbox { max-width:420px; margin:48px auto; background:#fff; border-radius:12px; box-shadow:0 1px 8px #cbd6ec; padding:32px 30px 20px 30px;}
+    h1 { color:#1b2530; font-size:28px; }
+    .btn {background:#233045;color:#fff;border:none;padding:8px 24px;border-radius:7px;font-size:16px;cursor:pointer;}
+    .btn:disabled{background:#a0aec0;}
+    .input-row{margin-bottom:15px;}
+    .input-row label{display:block;margin-bottom:4px;}
+    .input-row input, .input-row select{width:100%;padding:7px;border-radius:5px;border:1px solid #b0bec5;font-size:15px;}
+    .error{color:#d32f2f;font-size:14px;margin-bottom:8px;}
+    .notice {background:#fffbe0;border:1px solid #ffe082;padding:10px 18px;border-radius:8px;margin-bottom:18px;color:#8d6c14;}
+    .category-list { display: flex; flex-wrap: wrap; gap: 24px; }
+    .category-card { background:#fff; border-radius:12px; box-shadow:0 1px 8px #cbd6ec; width:340px; min-height:210px; display:flex; flex-direction:column; padding:22px 18px 16px 18px; margin-bottom:16px; }
+    .category-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+    .category-title { font-weight:bold; font-size:20px; }
+    .file-list { margin-top:5px; }
+    .notion-file-row { background:#f6f8fc; border-radius:8px; padding:12px 12px 8px 16px; margin-bottom:8px; position:relative; border:1px solid #dbe4f3;}
+    .file-top { display:flex; align-items:center; justify-content:space-between;}
+    .file-main { margin-top:8px; display:none; }
+    .file-main.active { display:block; }
+    .file-label { color:#233045; font-weight:bold; margin-right:8px;}
+    .file-delete-btn { position:absolute; top:8px; right:10px; background:#ffecec; color:#d32f2f; border:none; border-radius:6px; padding:2px 10px; cursor:pointer; }
+    .file-expand-btn { background:transparent; border:none; color:#233045; font-size:18px; cursor:pointer; margin-left:6px;}
+    .add-file-row { background:#e6edf6; border-radius:8px; padding:12px; margin-bottom:10px;}
+    .add-file-row input, .add-file-row select { margin-bottom:6px; }
+    @media (max-width:700px) { .container { padding:12px 2vw 30px 2vw; } .centerbox{padding:16px 2vw;} .category-list { flex-direction:column; gap:16px; } .category-card{width:97vw;} }
+  </style>
+</head>
+<body>
+  <div class="nav">Digital Legacy Demo</div>
+  <div id="app"></div>
+<script>
+const LS_USERS = "legacy_users";
+const LS_CURUSER = "legacy_curuser";
+const LS_CATEGORIES = "legacy_categories_";
+
+function loadUsers() {
+  return JSON.parse(localStorage.getItem(LS_USERS)||"[]");
+}
+function saveUsers(users) {
+  localStorage.setItem(LS_USERS, JSON.stringify(users));
+}
+function loadCurUser() {
+  return JSON.parse(localStorage.getItem(LS_CURUSER)||"null");
+}
+function saveCurUser(user) {
+  localStorage.setItem(LS_CURUSER, JSON.stringify(user));
+}
+function clearCurUser() {
+  localStorage.removeItem(LS_CURUSER);
+}
+
+// 分類記憶
+function loadCategories(email) {
+  return JSON.parse(localStorage.getItem(LS_CATEGORIES+email)||"[]");
+}
+function saveCategories(email, categories) {
+  localStorage.setItem(LS_CATEGORIES+email, JSON.stringify(categories));
+}
+
+function renderLogin(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">登入 Digital Legacy</h2>
+      <div class="input-row"><label>Email</label><input id="login-email"></div>
+      <div class="input-row"><label>密碼</label><input id="login-pwd" type="password"></div>
+      <div class="error" id="login-error"></div>
+      <button class="btn" id="login-btn" style="width:100%;">登入</button>
+      <div style="margin:22px 0 0 0;text-align:center;">
+        <a href="#" id="goto-reg">註冊新帳號</a>
+      </div>
+    </div>
+  `;
+  document.getElementById('login-btn').onclick = ()=>{
+    const email = document.getElementById('login-email').value.trim();
+    const pwd = document.getElementById('login-pwd').value.trim();
+    const users = loadUsers();
+    const user = users.find(u=>u.email===email && u.pwd===pwd);
+    if(!user) document.getElementById('login-error').innerText = "帳號或密碼錯誤";
+    else {
+      saveCurUser(user);
+      if(!user.profile) renderProfile();
+      else renderDashboard();
+    }
+  };
+  document.getElementById('goto-reg').onclick = ()=>{renderRegister();}
+}
+
+function renderRegister(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">註冊 Digital Legacy</h2>
+      <div class="input-row"><label>Email</label><input id="reg-email"></div>
+      <div class="input-row"><label>密碼</label><input id="reg-pwd" type="password"></div>
+      <div class="input-row"><label>確認密碼</label><input id="reg-pwd2" type="password"></div>
+      <div class="error" id="reg-error"></div>
+      <button class="btn" id="reg-btn" style="width:100%;">註冊</button>
+      <div style="margin:22px 0 0 0;text-align:center;">
+        <a href="#" id="goto-login">已有帳號？回登入</a>
+      </div>
+    </div>
+  `;
+  document.getElementById('goto-login').onclick = ()=>{renderLogin();}
+  document.getElementById('reg-btn').onclick = ()=>{
+    const email = document.getElementById('reg-email').value.trim();
+    const pwd = document.getElementById('reg-pwd').value.trim();
+    const pwd2 = document.getElementById('reg-pwd2').value.trim();
+    if(!email || !pwd){
+      document.getElementById('reg-error').innerText = '請填寫所有資料';
+      return;
+    }
+    if(pwd!==pwd2){
+      document.getElementById('reg-error').innerText = '密碼不一致';
+      return;
+    }
+    const users = loadUsers();
+    if(users.find(u=>u.email===email)){
+      document.getElementById('reg-error').innerText = 'Email已註冊過';
+      return;
+    }
+    users.push({email, pwd, profile: null, legacy: null});
+    saveUsers(users);
+    saveCurUser({email, pwd, profile: null, legacy: null});
+    renderProfile();
+  };
+}
+
+function renderProfile(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">填寫基本個人資料</h2>
+      <div class="input-row"><label>姓名</label><input id="p-name"></div>
+      <div class="input-row"><label>性別</label>
+        <select id="p-gender">
+          <option value="">請選擇</option>
+          <option value="男">男</option>
+          <option value="女">女</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div class="input-row"><label>出生年月日</label>
+        <input id="p-birth" type="date" max="2025-12-31">
+      </div>
+      <div class="input-row"><label>系統偏好語言</label>
+        <select id="p-lang">
+          <option value="">請選擇</option>
+          <option value="中文">中文</option>
+          <option value="英文">英文</option>
+        </select>
+      </div>
+      <div class="error" id="profile-error"></div>
+      <button class="btn" id="profile-btn" style="width:100%;">完成設定</button>
+    </div>
+  `;
+  document.getElementById('profile-btn').onclick = ()=>{
+    const name = document.getElementById('p-name').value.trim();
+    const gender = document.getElementById('p-gender').value.trim();
+    const birth = document.getElementById('p-birth').value.trim();
+    const lang = document.getElementById('p-lang').value.trim();
+    if(!name || !gender || !birth || !lang){
+      document.getElementById('profile-error').innerText = "請填寫所有資料";
+      return;
+    }
+    // 儲存 profile
+    const user = loadCurUser();
+    user.profile = {name, gender, birth, lang};
+    saveCurUser(user);
+    // 更新 users列表
+    const users = loadUsers();
+    const idx = users.findIndex(u=>u.email===user.email);
+    users[idx] = user;
+    saveUsers(users);
+    renderDashboard();
+  };
+}
+
+function renderDashboard(){
+  const user = loadCurUser();
+  let categories = loadCategories(user.email);
+  app.innerHTML = `
+    <div class="container">
+      <h1>Hi, ${user.profile.name}！</h1>
+      <div class="notice">
+        歡迎進入您的數位遺產管理中心。<br>
+        可以像 Notion 一樣自由分類與管理遺產與帳號資訊。<br>
+        死後繼承設定可在右上方選用。
+      </div>
+      <div style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;">
+        <button class="btn" id="add-category-btn">＋ 新增分類</button>
+        <button class="btn" id="legacy-btn" style="background:#396;">死後繼承設定</button>
+        <button class="btn" id="logout-btn" style="background:#be1e1e;">登出</button>
+      </div>
+      <div class="category-list" id="category-list"></div>
+    </div>
+  `;
+  document.getElementById('logout-btn').onclick = ()=>{clearCurUser(); renderLogin();}
+  document.getElementById('legacy-btn').onclick = ()=>{renderLegacySetting();}
+  document.getElementById('add-category-btn').onclick = ()=>{
+    const cname = prompt("請輸入分類名稱（例如：資產繼承、社群帳號等）");
+    if(cname && cname.trim()!==""){
+      categories.push({title:cname.trim(), files:[]});
+      saveCategories(user.email, categories);
+      renderDashboard();
+    }
+  };
+  renderCategoryList(user.email, categories);
+}
+
+function renderCategoryList(email, categories){
+  const wrap = document.getElementById('category-list');
+  wrap.innerHTML = '';
+  categories.forEach((cat, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'category-card';
+    card.innerHTML = `
+      <div class="category-header">
+        <span class="category-title">${cat.title}</span>
+        <button class="delete-btn" title="刪除分類" id="del-cat-${idx}">✕</button>
+      </div>
+      <div class="file-list" id="file-list-${idx}"></div>
+      <div class="add-file-row" id="add-file-row-${idx}">
+        <input type="text" placeholder="檔案名稱（可選）" id="new-file-name-${idx}">
+        <input type="url" placeholder="Google雲端連結（可選）" id="new-file-link-${idx}">
+        <label><input type="checkbox" id="new-file-inherit-${idx}"> 需要繼承人</label>
+        <input type="email" placeholder="指定繼承人 Gmail（可選）" id="new-file-inherit-gmail-${idx}" style="display:none;">
+        <input type="text" placeholder="備註（可選）" id="new-file-note-${idx}">
+        <button class="btn" id="add-file-btn-${idx}" style="margin-top:8px;">新增檔案</button>
+      </div>
+    `;
+    wrap.appendChild(card);
+
+    // 刪除分類
+    card.querySelector(`#del-cat-${idx}`).onclick = ()=>{
+      categories.splice(idx,1);
+      saveCategories(email, categories);
+      renderCategoryList(email, categories);
+    };
+
+    // 新增檔案
+    card.querySelector(`#new-file-inherit-${idx}`).onchange = function(){
+      card.querySelector(`#new-file-inherit-gmail-${idx}`).style.display = this.checked ? "block" : "none";
+    };
+    card.querySelector(`#add-file-btn-${idx}`).onclick = ()=>{
+      let name = card.querySelector(`#new-file-name-${idx}`).value.trim();
+      let link = card.querySelector(`#new-file-link-${idx}`).value.trim();
+      let inherit = card.querySelector(`#new-file-inherit-${idx}`).checked;
+      let inheritGmail = card.querySelector(`#new-file-inherit-gmail-${idx}`).value.trim();
+      let note = card.querySelector(`#new-file-note-${idx}`).value.trim();
+      if(!name && !link) {
+        alert("請至少輸入檔案名稱或雲端連結");
+        return;
+      }
+      cat.files.push({
+        name: name,
+        link: link,
+        inherit: inherit,
+        inheritGmail: inherit?inheritGmail:"",
+        note: note,
+        expanded: false // for UI
+      });
+      saveCategories(email, categories);
+      renderCategoryList(email, categories);
+    };
+
+    // 檔案列表
+    renderFileList(email, idx, cat.files, categories);
+  });
+}
+
+// Notion-style 檔案卡片
+function renderFileList(email, catIdx, files, categories){
+  const fileListDiv = document.getElementById(`file-list-${catIdx}`);
+  fileListDiv.innerHTML = '';
+  files.forEach((file, fidx)=>{
+    const row = document.createElement('div');
+    row.className = 'notion-file-row';
+    row.innerHTML = `
+      <div class="file-top">
+        <span><span class="file-label">名稱：</span>${file.name||""} ${file.link?`<a href="${file.link}" target="_blank" style="color:#247">[雲端]</a>`:""}</span>
+        <div>
+          <button class="file-expand-btn" id="expand-btn-${catIdx}-${fidx}">${file.expanded?"▾":"▸"}</button>
+          <button class="file-delete-btn" id="del-file-${catIdx}-${fidx}" title="刪除檔案">✕</button>
+        </div>
+      </div>
+      <div class="file-main ${file.expanded?'active':''}" id="file-main-${catIdx}-${fidx}">
+        <div class="input-row">
+          <label>名稱：</label>
+          <input type="text" value="${file.name||""}" id="edit-file-name-${catIdx}-${fidx}">
+        </div>
+        <div class="input-row">
+          <label>雲端連結：</label>
+          <input type="url" value="${file.link||""}" id="edit-file-link-${catIdx}-${fidx}">
+        </div>
+        <div class="input-row">
+          <label><input type="checkbox" id="edit-file-inherit-${catIdx}-${fidx}" ${file.inherit?"checked":""}> 需要繼承人</label>
+        </div>
+        <div class="input-row" id="edit-inherit-row-${catIdx}-${fidx}" style="${file.inherit?"":"display:none;"}">
+          <label>指定繼承人 Gmail：</label>
+          <input type="email" value="${file.inheritGmail||""}" id="edit-file-inherit-gmail-${catIdx}-${fidx}">
+        </div>
+        <div class="input-row">
+          <label>備註（可選）：</label>
+          <input type="text" value="${file.note||""}" id="edit-file-note-${catIdx}-${fidx}">
+        </div>
+      </div>
+    `;
+    fileListDiv.appendChild(row);
+
+    // 展開/收合
+    row.querySelector(`#expand-btn-${catIdx}-${fidx}`).onclick = ()=>{
+      files[fidx].expanded = !files[fidx].expanded;
+      saveCategories(email, categories);
+      renderFileList(email, catIdx, files, categories);
+    };
+
+    // 刪除檔案
+    row.querySelector(`#del-file-${catIdx}-${fidx}`).onclick = ()=>{
+      files.splice(fidx,1);
+      saveCategories(email, categories);
+      renderFileList(email, catIdx, files, categories);
+    };
+
+    // 即時編輯
+    const mainDiv = row.querySelector(`#file-main-${catIdx}-${fidx}`);
+    if(mainDiv){
+      mainDiv.querySelector(`#edit-file-name-${catIdx}-${fidx}`).onchange = function(){
+        files[fidx].name = this.value.trim();
+        saveCategories(email, categories);
+      };
+      mainDiv.querySelector(`#edit-file-link-${catIdx}-${fidx}`).onchange = function(){
+        files[fidx].link = this.value.trim();
+        saveCategories(email, categories);
+      };
+      mainDiv.querySelector(`#edit-file-inherit-${catIdx}-${fidx}`).onchange = function(){
+        files[fidx].inherit = this.checked;
+        saveCategories(email, categories);
+        mainDiv.querySelector(`#edit-inherit-row-${catIdx}-${fidx}`).style.display = this.checked ? "block" : "none";
+      };
+      mainDiv.querySelector(`#edit-file-inherit-gmail-${catIdx}-${fidx}`).onchange = function(){
+        files[fidx].inheritGmail = this.value.trim();
+        saveCategories(email, categories);
+      };
+      mainDiv.querySelector(`#edit-file-note-${catIdx}-${fidx}`).onchange = function(){
+        files[fidx].note = this.value.trim();
+        saveCategories(email, categories);
+      };
+    }
+  });
+}
+
+function renderLegacySetting(){
+  const user = loadCurUser();
+  const legacy = user.legacy || {days:7, notifyName:"", notifyGmail:"", notifyRelation:""};
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">死後繼承設定</h2>
+      <div class="input-row"><label>幾天未登入需通知</label><input type="number" id="legacy-days" min="1" max="120" value="${legacy.days}"></div>
+      <div class="input-row"><label>通知人姓名</label><input type="text" id="legacy-nname" value="${legacy.notifyName}"></div>
+      <div class="input-row"><label>通知人 Gmail</label><input type="email" id="legacy-ngmail" value="${legacy.notifyGmail}" placeholder="xxx@gmail.com"></div>
+      <div class="input-row"><label>與通知人關係</label>
+        <select id="legacy-rel">
+          <option value="">請選擇</option>
+          <option value="家人" ${legacy.notifyRelation=="家人"?"selected":""}>家人</option>
+          <option value="朋友" ${legacy.notifyRelation=="朋友"?"selected":""}>朋友</option>
+          <option value="其他" ${legacy.notifyRelation=="其他"?"selected":""}>其他</option>
+        </select>
+      </div>
+      <div class="error" id="legacy-error"></div>
+      <button class="btn" id="legacy-save" style="width:100%;">儲存設定</button>
+      <button class="btn" id="legacy-back" style="background:#b0bec5;color:#233045;width:100%;margin-top:10px;">返回Dashboard</button>
+    </div>
+  `;
+  document.getElementById('legacy-save').onclick = ()=>{
+    let days = parseInt(document.getElementById('legacy-days').value,10)||7;
+    let notifyName = document.getElementById('legacy-nname').value.trim();
+    let notifyGmail = document.getElementById('legacy-ngmail').value.trim();
+    let notifyRelation = document.getElementById('legacy-rel').value.trim();
+    if(!days || !notifyName || !notifyGmail || !notifyRelation){
+      document.getElementById('legacy-error').innerText = "請填寫所有設定";
+      return;
+    }
+    // 儲存
+    const users = loadUsers();
+    const idx = users.findIndex(u=>u.email===user.email);
+    users[idx].legacy = {days, notifyName, notifyGmail, notifyRelation};
+    saveUsers(users);
+    user.legacy = {days, notifyName, notifyGmail, notifyRelation};
+    saveCurUser(user);
+    alert("設定完成！");
+    renderDashboard();
+  };
+  document.getElementById('legacy-back').onclick = ()=>{renderDashboard();}
+}
+
+const app = document.getElementById('app');
+if(loadCurUser()){ 
+  if(!loadCurUser().profile) renderProfile();
+  else renderDashboard();
+}
+else renderLogin();
+</script>
+</body>
+</html>
