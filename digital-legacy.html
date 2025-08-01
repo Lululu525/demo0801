@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>Digital Legacy Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { background:#f7f9fb;font-family:Arial,sans-serif;}
+    .centerbox { max-width:420px; margin:48px auto; background:#fff; border-radius:12px; box-shadow:0 1px 8px #cbd6ec; padding:32px 30px 20px 30px;}
+    .input-row{margin-bottom:15px;}
+    .input-row label{display:block;margin-bottom:4px;}
+    .input-row input, .input-row select{width:100%;padding:7px;border-radius:5px;border:1px solid #b0bec5;font-size:15px;}
+    .btn {background:#233045;color:#fff;border:none;padding:8px 24px;border-radius:7px;font-size:16px;cursor:pointer;}
+    .error{color:#d32f2f;font-size:14px;margin-bottom:8px;}
+    .notice {background:#fffbe0;border:1px solid #ffe082;padding:10px 18px;border-radius:8px;margin-bottom:18px;color:#8d6c14;}
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const LS_USERS = "demo_users";
+const LS_CURUSER = "demo_curuser";
+
+function loadUsers() {
+  return JSON.parse(localStorage.getItem(LS_USERS)||"[]");
+}
+function saveUsers(users) {
+  localStorage.setItem(LS_USERS, JSON.stringify(users));
+}
+function loadCurUser() {
+  return JSON.parse(localStorage.getItem(LS_CURUSER)||"null");
+}
+function saveCurUser(user) {
+  localStorage.setItem(LS_CURUSER, JSON.stringify(user));
+}
+function clearCurUser() {
+  localStorage.removeItem(LS_CURUSER);
+}
+
+function renderLogin(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">登入 Digital Legacy</h2>
+      <div class="input-row"><label>Email</label><input id="login-email"></div>
+      <div class="input-row"><label>密碼</label><input id="login-pwd" type="password"></div>
+      <div class="error" id="login-error"></div>
+      <button class="btn" id="login-btn" style="width:100%;">登入</button>
+      <div style="margin:22px 0 0 0;text-align:center;">
+        <a href="#" id="goto-reg">註冊新帳號</a>
+      </div>
+    </div>
+  `;
+  document.getElementById('login-btn').onclick = ()=>{
+    const email = document.getElementById('login-email').value.trim();
+    const pwd = document.getElementById('login-pwd').value.trim();
+    const users = loadUsers();
+    const user = users.find(u=>u.email===email && u.pwd===pwd);
+    if(!user) document.getElementById('login-error').innerText = "帳號或密碼錯誤";
+    else {
+      saveCurUser(user);
+      if(!user.profile) renderProfile();
+      else renderDashboard();
+    }
+  };
+  document.getElementById('goto-reg').onclick = ()=>{renderRegister();}
+}
+
+function renderRegister(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">註冊 Digital Legacy</h2>
+      <div class="input-row"><label>Email</label><input id="reg-email"></div>
+      <div class="input-row"><label>密碼</label><input id="reg-pwd" type="password"></div>
+      <div class="input-row"><label>確認密碼</label><input id="reg-pwd2" type="password"></div>
+      <div class="error" id="reg-error"></div>
+      <button class="btn" id="reg-btn" style="width:100%;">註冊</button>
+      <div style="margin:22px 0 0 0;text-align:center;">
+        <a href="#" id="goto-login">已有帳號？回登入</a>
+      </div>
+    </div>
+  `;
+  document.getElementById('goto-login').onclick = ()=>{renderLogin();}
+  document.getElementById('reg-btn').onclick = ()=>{
+    const email = document.getElementById('reg-email').value.trim();
+    const pwd = document.getElementById('reg-pwd').value.trim();
+    const pwd2 = document.getElementById('reg-pwd2').value.trim();
+    if(!email || !pwd){
+      document.getElementById('reg-error').innerText = '請填寫所有資料';
+      return;
+    }
+    if(pwd!==pwd2){
+      document.getElementById('reg-error').innerText = '密碼不一致';
+      return;
+    }
+    const users = loadUsers();
+    if(users.find(u=>u.email===email)){
+      document.getElementById('reg-error').innerText = 'Email已註冊過';
+      return;
+    }
+    users.push({email, pwd, profile: null, legacy: null});
+    saveUsers(users);
+    saveCurUser({email, pwd, profile: null, legacy: null});
+    renderProfile();
+  };
+}
+
+function renderProfile(){
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">填寫基本個人資料</h2>
+      <div class="input-row"><label>姓名</label><input id="p-name"></div>
+      <div class="input-row"><label>性別</label>
+        <select id="p-gender">
+          <option value="">請選擇</option>
+          <option value="男">男</option>
+          <option value="女">女</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+      <div class="input-row"><label>出生年月日</label>
+        <input id="p-birth" type="date" max="2025-12-31">
+      </div>
+      <div class="input-row"><label>系統偏好語言</label>
+        <select id="p-lang">
+          <option value="">請選擇</option>
+          <option value="中文">中文</option>
+          <option value="英文">英文</option>
+        </select>
+      </div>
+      <div class="error" id="profile-error"></div>
+      <button class="btn" id="profile-btn" style="width:100%;">完成設定</button>
+    </div>
+  `;
+  document.getElementById('profile-btn').onclick = ()=>{
+    const name = document.getElementById('p-name').value.trim();
+    const gender = document.getElementById('p-gender').value.trim();
+    const birth = document.getElementById('p-birth').value.trim();
+    const lang = document.getElementById('p-lang').value.trim();
+    if(!name || !gender || !birth || !lang){
+      document.getElementById('profile-error').innerText = "請填寫所有資料";
+      return;
+    }
+    // 儲存 profile
+    const user = loadCurUser();
+    user.profile = {name, gender, birth, lang};
+    saveCurUser(user);
+    // 更新 users列表
+    const users = loadUsers();
+    const idx = users.findIndex(u=>u.email===user.email);
+    users[idx] = user;
+    saveUsers(users);
+    renderDashboard();
+  };
+}
+
+function renderDashboard(){
+  const user = loadCurUser();
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">Hi, ${user.profile.name}！</h2>
+      <div class="notice">
+        歡迎使用遺產管理中心。<br>
+        您已完成基本個人資料設定。<br>
+        <b>死後繼承設定</b>（非必填）：可設定幾天未登入後通知指定通知人。
+      </div>
+      <button class="btn" id="legacy-btn" style="width:100%;margin-bottom:16px;">死後繼承設定</button>
+      <button class="btn" id="logout-btn" style="background:#be1e1e;width:100%;">登出</button>
+    </div>
+  `;
+  document.getElementById('legacy-btn').onclick = ()=>{renderLegacySetting();}
+  document.getElementById('logout-btn').onclick = ()=>{clearCurUser(); renderLogin();}
+}
+
+function renderLegacySetting(){
+  const user = loadCurUser();
+  const legacy = user.legacy || {days:7, notifyName:"", notifyGmail:"", notifyRelation:""};
+  app.innerHTML = `
+    <div class="centerbox">
+      <h2 style="text-align:center;">死後繼承設定</h2>
+      <div class="input-row"><label>幾天未登入需通知</label><input type="number" id="legacy-days" min="1" max="120" value="${legacy.days}"></div>
+      <div class="input-row"><label>通知人姓名</label><input type="text" id="legacy-nname" value="${legacy.notifyName}"></div>
+      <div class="input-row"><label>通知人 Gmail</label><input type="email" id="legacy-ngmail" value="${legacy.notifyGmail}" placeholder="xxx@gmail.com"></div>
+      <div class="input-row"><label>與通知人關係</label>
+        <select id="legacy-rel">
+          <option value="">請選擇</option>
+          <option value="家人" ${legacy.notifyRelation=="家人"?"selected":""}>家人</option>
+          <option value="朋友" ${legacy.notifyRelation=="朋友"?"selected":""}>朋友</option>
+          <option value="其他" ${legacy.notifyRelation=="其他"?"selected":""}>其他</option>
+        </select>
+      </div>
+      <div class="error" id="legacy-error"></div>
+      <button class="btn" id="legacy-save" style="width:100%;">儲存設定</button>
+      <button class="btn" id="legacy-back" style="background:#b0bec5;color:#233045;width:100%;margin-top:10px;">返回Dashboard</button>
+    </div>
+  `;
+  document.getElementById('legacy-save').onclick = ()=>{
+    let days = parseInt(document.getElementById('legacy-days').value,10)||7;
+    let notifyName = document.getElementById('legacy-nname').value.trim();
+    let notifyGmail = document.getElementById('legacy-ngmail').value.trim();
+    let notifyRelation = document.getElementById('legacy-rel').value.trim();
+    if(!days || !notifyName || !notifyGmail || !notifyRelation){
+      document.getElementById('legacy-error').innerText = "請填寫所有設定";
+      return;
+    }
+    // 儲存
+    const users = loadUsers();
+    const idx = users.findIndex(u=>u.email===user.email);
+    users[idx].legacy = {days, notifyName, notifyGmail, notifyRelation};
+    saveUsers(users);
+    user.legacy = {days, notifyName, notifyGmail, notifyRelation};
+    saveCurUser(user);
+    alert("設定完成！");
+    renderDashboard();
+  };
+  document.getElementById('legacy-back').onclick = ()=>{renderDashboard();}
+}
+
+const app = document.getElementById('app');
+if(loadCurUser()){ 
+  if(!loadCurUser().profile) renderProfile();
+  else renderDashboard();
+}
+else renderLogin();
+</script>
+</body>
+</html>
